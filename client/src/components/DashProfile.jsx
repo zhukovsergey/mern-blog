@@ -21,6 +21,8 @@ export default function DashProfile() {
   const { currentUser } = useSelector((state) => state.user);
   const [imageFile, setImageFile] = useState(null);
   const [imageFileUrl, setImageFileUrl] = useState(null);
+  const [imageFileUploading, setImageFileUploading] = useState(false);
+  const [updateUserSuccess, setUpdateUserSuccess] = useState(null);
   const [imageFileUploadingProgress, setImageFileUploadingProgress] =
     useState(null);
   const [imageFileUploadError, setImageFileUploadError] = useState(null);
@@ -50,6 +52,7 @@ export default function DashProfile() {
         }
       }
     } */
+    setImageFileUploading(true);
     setImageFileUploadError(null);
     const storage = getStorage(app);
     const fileName = new Date().getTime() + imageFile.name;
@@ -69,11 +72,13 @@ export default function DashProfile() {
         setImageFileUploadingProgress(null);
         setImageFile(null);
         setImageFileUrl(null);
+        setImageFileUploading(false);
       },
       () => {
         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
           setImageFileUrl(downloadURL);
           setFormData({ ...formData, profilePicture: downloadURL });
+          setImageFileUploading(false);
         });
       }
     );
@@ -88,7 +93,9 @@ export default function DashProfile() {
     if (Object.keys(formData).length === 0) {
       return;
     }
-
+    if (imageFileUploading) {
+      return;
+    }
     try {
       dispatch(updateStart());
       const res = await fetch(`/api/user/update/${currentUser._id}`, {
@@ -103,6 +110,7 @@ export default function DashProfile() {
         dispatch(updateFailure(data.message));
       } else {
         dispatch(updateSuccess(data));
+        setUpdateUserSuccess("User profile updated successfully");
       }
     } catch (error) {
       dispatch(updateFailure(error.message));
