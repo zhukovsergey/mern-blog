@@ -1,7 +1,18 @@
-import { FileInput, Select, TextInput, Button } from "flowbite-react";
+import { FileInput, Select, TextInput, Button, Alert } from "flowbite-react";
 import ReactQuill, { Quill } from "react-quill";
 import ImageResize from "quill-image-resize-module-react";
+import {
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadBytesResumable,
+} from "firebase/storage";
 import "react-quill/dist/quill.snow.css";
+import { app } from "../firebase";
+import { useState } from "react";
+import { CircularProgressbar } from "react-circular-progressbar";
+import "react-circular-progressbar/dist/styles.css";
+
 Quill.register("modules/imageResize", ImageResize);
 export default function CreatePost() {
   const modules = {
@@ -19,7 +30,45 @@ export default function CreatePost() {
       modules: ["Resize", "DisplaySize"],
     },
   };
+  const [file, setFile] = useState(null);
+  const [imageUploadProgress, setImageUploadProgress] = useState(null);
+  const [imageUploadError, setImageUploadError] = useState(null);
+  const [formData, setFormData] = useState({});
 
+  const handleUploadImage = async () => {
+    try {
+      if (!file) {
+        setImageUploadError("Please select an image");
+        return;
+      }
+      setImageUploadError(null);
+      const storage = getStorage(app);
+      const storageRef = ref(storage, `images/${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const progress =
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setImageUploadProgress(progress.toFixed(0));
+        },
+        (error) => {
+          setImageUploadError("error uploading image");
+          setImageUploadProgress(null);
+        },
+        () => {
+          getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+            setImageUploadProgress(null);
+            setImageUploadError(null);
+            setFormData({ ...formData, image: downloadURL });
+          });
+        }
+      );
+    } catch (error) {
+      setImageUploadError("Ошибка загрузки фото");
+      setImageUploadProgress(null);
+    }
+  };
   return (
     <div className="p3 max-w-3xl mx-auto min-h-screen">
       <div className="text-center text-3xl my-7 font-semibold">
@@ -42,16 +91,39 @@ export default function CreatePost() {
           </Select>
         </div>
         <div className="flex gap-4 items-center justify-between border-4 border-teal-500 border-dotted p-3">
-          <FileInput type="file" accept="image/*" />
+          <FileInput
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
           <Button
             type="button"
             gradientDuoTone="purpleToBlue"
             size="sm"
             outline
+            onClick={handleUploadImage}
+            disabled={imageUploadProgress}
           >
-            Загрузить фото
+            {imageUploadProgress ? (
+              <div className="w-16 h-16">
+                <CircularProgressbar
+                  value={imageUploadProgress}
+                  text={`${imageUploadProgress || 0}%`}
+                />
+              </div>
+            ) : (
+              "Загрузить изображение"
+            )}
           </Button>
         </div>
+        {imageUploadError && <Alert color="failure">{imageUploadError}</Alert>}
+        {formData.image && (
+          <img
+            src={formData.image}
+            alt="image"
+            className="w-full h-72 object-cover"
+          />
+        )}
         <ReactQuill
           modules={modules}
           theme="snow"
