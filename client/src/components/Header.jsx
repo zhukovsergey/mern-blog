@@ -5,6 +5,7 @@ import { FaMoon, FaSun } from "react-icons/fa";
 import { useSelector, useDispatch } from "react-redux";
 import { signoutSuccess } from "../redux/user/userSlice";
 import { toggleTheme } from "../redux/theme/themeSlice";
+import { GrLogout, GrGremlin } from "react-icons/gr";
 
 export default function Header() {
   const path = useLocation().pathname;
@@ -72,12 +73,18 @@ export default function Header() {
               <span className="block text-sm font-medium truncate">
                 {currentUser.email}
               </span>
-            </Dropdown.Header>
+            </Dropdown.Header>{" "}
             <Link to={"/dashboard?tab=profile"}>
-              <Dropdown.Item>Profile</Dropdown.Item>
+              <Dropdown.Item>
+                <GrGremlin className="w-4 h-4 mr-2 ml-[-3px] dark:text-indigo-300 text-black" />
+                Профиль
+              </Dropdown.Item>
             </Link>
             <Dropdown.Divider />
-            <Dropdown.Item onClick={handleSignout}>Sign out</Dropdown.Item>
+            <Dropdown.Item onClick={handleSignout}>
+              <GrLogout className="w-4 h-4 mr-2 dark:text-indigo-300 text-black" />
+              Выйти
+            </Dropdown.Item>
           </Dropdown>
         ) : (
           <Link to="/sign-in">

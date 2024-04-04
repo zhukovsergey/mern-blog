@@ -1,4 +1,4 @@
-import { Alert, Button, TextInput } from "flowbite-react";
+import { Alert, Button, Modal, TextInput } from "flowbite-react";
 import { useSelector } from "react-redux";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -14,15 +14,23 @@ import {
   updateStart,
   updateSuccess,
   updateFailure,
+  deleteUserFailure,
+  deleteUserStart,
+  deleteUserSuccess,
+  signoutSuccess,
 } from "../redux/user/userSlice";
 import { useDispatch } from "react-redux";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { Link } from "react-router-dom";
 
 export default function DashProfile() {
-  const { currentUser } = useSelector((state) => state.user);
+  const { currentUser, error, loading } = useSelector((state) => state.user);
   const [imageFile, setImageFile] = useState(null);
   const [imageFileUrl, setImageFileUrl] = useState(null);
   const [imageFileUploading, setImageFileUploading] = useState(false);
   const [updateUserSuccess, setUpdateUserSuccess] = useState(null);
+  const [updateUserError, setUpdateUserError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const [imageFileUploadingProgress, setImageFileUploadingProgress] =
     useState(null);
   const [imageFileUploadError, setImageFileUploadError] = useState(null);
@@ -89,11 +97,14 @@ export default function DashProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setUpdateUserError(null);
+    setUpdateUserSuccess(null);
     if (Object.keys(formData).length === 0) {
+      setUpdateUserError("Обновления не были внесены");
       return;
     }
     if (imageFileUploading) {
+      setUpdateUserError("Пожалуйста подождите пока загрузится ваше фото");
       return;
     }
     try {
@@ -108,12 +119,46 @@ export default function DashProfile() {
       const data = await res.json();
       if (!res.ok) {
         dispatch(updateFailure(data.message));
+        setUpdateUserError(data.message);
       } else {
         dispatch(updateSuccess(data));
-        setUpdateUserSuccess("User profile updated successfully");
+        setUpdateUserSuccess("Профиль пользователя обновлен успешно");
       }
     } catch (error) {
       dispatch(updateFailure(error.message));
+      setUpdateUserError(error.message);
+    }
+  };
+  const handleDeleteUser = async () => {
+    setShowModal(false);
+    try {
+      dispatch(deleteUserStart());
+      const res = await fetch(`/api/user/delete/${currentUser._id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        dispatch(deleteUserFailure(data.message));
+      } else {
+        dispatch(deleteUserSuccess(data));
+      }
+    } catch (error) {
+      dispatch(deleteUserFailure(error.message));
+    }
+  };
+  const handleSignout = async () => {
+    try {
+      const res = await fetch("/api/user/signout", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.log(data.message);
+      } else {
+        dispatch(signoutSuccess());
+      }
+    } catch (error) {
+      console.log(error.message);
     }
   };
   return (
@@ -186,14 +231,70 @@ export default function DashProfile() {
           placeholder="password"
           onChange={handleChange}
         ></TextInput>
-        <Button type="submit" gradientDuoTone={"purpleToBlue"} outline>
-          Сохранить
+        <Button
+          type="submit"
+          gradientDuoTone={"purpleToBlue"}
+          outline
+          disabled={loading || imageFileUploading}
+        >
+          {loading || imageFileUploading ? "Загрузка..." : "Обновить профиль"}
         </Button>
+        {currentUser.isAdmin && (
+          <Link to={"/create-post"}>
+            <Button
+              type="button"
+              gradientDuoTone={"purpleToBlue"}
+              outline
+              className="w-full"
+            >
+              Создать пост
+            </Button>
+          </Link>
+        )}
       </form>
       <div className="text-red-500 flex justify-between mt-5">
-        <span className="cursor-pointer">Удалить аккаунт</span>
-        <span className="cursor-pointer">Выйти</span>
+        <span onClick={() => setShowModal(true)} className="cursor-pointer">
+          Удалить аккаунт
+        </span>
+        <span onClick={handleSignout} className="cursor-pointer">
+          Выйти
+        </span>
       </div>
+      {updateUserSuccess && (
+        <Alert className="mt-5" color="success">
+          {updateUserSuccess}
+        </Alert>
+      )}
+      {updateUserError && (
+        <Alert className="mt-5" color="failure">
+          {updateUserError}
+        </Alert>
+      )}
+
+      <Modal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        popup
+        size="md"
+      >
+        <Modal.Header>Удалить аккаунт</Modal.Header>
+        <Modal.Body>
+          <div className="text-center">
+            <HiOutlineExclamationCircle className="h-14 w-14 text-gray-400 dark:text-gray-200 mb-4 mx-auto" />
+            <h3 className="mb-5 text-">
+              Вы действительно хотите удалить свой аккаунт?
+            </h3>
+            <div className="flex justify-center gap-4">
+              <Button color="failure" onClick={handleDeleteUser} outline>
+                Хочу, ДА
+              </Button>
+              <Button color="gray" onClick={() => setShowModal(false)} outline>
+                Нет
+              </Button>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }
